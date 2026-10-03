@@ -1,20 +1,31 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Numerics;
+using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
-using System.IO;
-using System.ComponentModel;
+using System.Windows.Media.Media3D;
 using ToastNotifications;
 using ToastNotifications.Lifetime;
-using ToastNotifications.Position;
 using ToastNotifications.Messages;
+using ToastNotifications.Position;
 
-//Install - Package ToastNotifications
-//Install - Package ToastNotifications.Messages
+//Install-Package ToastNotifications
+//Install-Package ToastNotifications.Messages
 
-
+/*to do:
+ * dodać opcje na ustawianie długości słowa (4-8 liter)
+ * wraz z opcją na ustawienie liczby prób (4-8)
+ * jak tak to też trzeba words4.txt, words5.txt, words6.txt, words7.txt, words8.txt
+ * i przy dodawaniu słów zapytać jaka długość słowa -> gdzie dodać
+ * niewiem ile ich mam ale chyba tokeny mi się kończą :D
+ */
 namespace Worlde
 {
     public partial class MainWindow : Window, INotifyPropertyChanged
@@ -118,7 +129,17 @@ namespace Worlde
             if (wordsList.Count == 0)
             {
                 // jak sie wszystko wysra to jest to coś
-                wordsList.AddRange(new[] { "APPLE", "GRAPE", "PLANE", "BRICK", "CANDY", "HELLO" });
+                wordsList.AddRange(new[]
+                {
+                    "APPLE", "GRAPE", "PLANE", "BRICK", "CANDY", "HELLO", "POWER", "LIVED",
+                    "WHICH", "THERE", "THEIR", "ABOUT", "WOULD", "THESE", "OTHER", "WORDS",
+                    "COULD", "WRITE", "FIRST", "WATER", "AFTER", "WHERE", "RIGHT", "THINK",
+                    "THREE", "YEARS", "PLACE", "SOUND", "POINT", "TIMES", "HEARD", "WHOLE",
+                    "WHITE", "GIVEN", "MEANS", "MUSIC", "MILES", "THING", "TODAY", "LATER",
+                    "USING", "MONEY", "LINES", "ORDER", "GROUP", "AMONG", "LEARN", "KNOWN",
+                    "SPACE", "TABLE", "EARLY", "TREES", "SHORT", "HANDS", "STATE", "BLACK",
+                    "SHOWN", "STOOD", "FRONT", "VOICE", "KINDS", "MAKES", "COMES", "CLOSE"
+                });
             }
             OnPropertyChanged(nameof(WordsCount));
         }
