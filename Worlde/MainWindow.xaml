@@ -6,6 +6,9 @@
         xmlns:local="clr-namespace:Worlde"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800" Background="Black">
+    <Window.Resources>
+        <local:IntEqualsConverter x:Key="IntEqualsConverter"/>
+    </Window.Resources>
     <Grid Background="#FF0B0B0B">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
@@ -16,15 +19,15 @@
             <RowDefinition Height="auto"/>
         </Grid.RowDefinitions>
         <!--kafelki tekstu-->
-        <ItemsControl Grid.Row="0" Grid.Column="0" Width="350" Height="500" ItemsSource="{Binding Tiles}">
+        <ItemsControl Grid.Row="0" Grid.Column="0" ItemsSource="{Binding Tiles}" HorizontalAlignment="Center" VerticalAlignment="Center">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <UniformGrid Rows="6" Columns="5"/>
+                    <UniformGrid Rows="{Binding MaxAttempts}" Columns="{Binding SecretWordLength}" HorizontalAlignment="Center"/>
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Border Margin="5" BorderThickness="2" BorderBrush="#FFCCCCCC" x:Name="TileBorder" MinHeight="50" MinWidth="50">
+                    <Border Margin="6" BorderThickness="2" BorderBrush="#FFCCCCCC" x:Name="TileBorder" Width="60" Height="60">
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="Background" Value="#212121"/>
@@ -41,8 +44,8 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <Viewbox Stretch="Uniform">
-                            <TextBlock Text="{Binding Letter}" FontSize="2" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
+                        <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Letter}" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" TextAlignment="Center"/>
                         </Viewbox>
                     </Border>
                 </DataTemplate>
@@ -144,13 +147,33 @@
 
         <!-- panel debug -->
         <StackPanel Grid.Column="1" Grid.RowSpan="2" Margin="10" >
-            <TextBlock Text="Debug" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+            <TextBlock Text="Controls" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
             <Button Content="Nowa gra" Click="NewGame_Click" Margin="0,0,0,10" Padding="8,4" Background="#FF2A2A2A" Foreground="White"/>
             <Button Content="Dodaj do listy słów" Click="AddWords_Click" Margin="0,0,0,10" Padding="8,4" Background="#FF2A2A2A" Foreground="White"/>
+            <StackPanel Margin="5">
+                <Label Content="Długość słowa: (nowa gra)" Foreground="White"/>
+                <RadioButton GroupName="word_length" IsChecked="{Binding SecretWordLength, Converter={StaticResource IntEqualsConverter}, ConverterParameter=4, Mode=TwoWay}" Content="4 liter"  Margin="0,0,0,5" Foreground="White"/>
+                <RadioButton GroupName="word_length" IsChecked="{Binding SecretWordLength, Converter={StaticResource IntEqualsConverter}, ConverterParameter=5, Mode=TwoWay}" Content="5 liter" Margin="0,0,0,5" Foreground="White"/>
+                <RadioButton GroupName="word_length" IsChecked="{Binding SecretWordLength, Converter={StaticResource IntEqualsConverter}, ConverterParameter=6, Mode=TwoWay}" Content="6 liter" Margin="0,0,0,5" Foreground="White"/>
+                <RadioButton GroupName="word_length" IsChecked="{Binding SecretWordLength, Converter={StaticResource IntEqualsConverter}, ConverterParameter=7, Mode=TwoWay}" Content="7 liter" Margin="0,0,0,5" Foreground="White"/>
+                <RadioButton GroupName="word_length" IsChecked="{Binding SecretWordLength, Converter={StaticResource IntEqualsConverter}, ConverterParameter=8, Mode=TwoWay}" Content="8 liter" Margin="0,0,0,5" Foreground="White"/>
+            </StackPanel>
+            <StackPanel Margin="5">
+                <Label Content="Ilość prób: (nowa gra)" Foreground="White"/>
+                <RadioButton GroupName="attempts" IsChecked="False" CommandParameter="4" Click="RadioButton_Click_1" Content="4 próby"  Margin="0,0,0,5" Foreground="White"/>
+                <RadioButton GroupName="attempts" IsChecked="False"  CommandParameter="5" Click="RadioButton_Click_1" Content="5 prób" Margin="0,0,0,5" Foreground="White"/>
+                <RadioButton GroupName="attempts" IsChecked="True" CommandParameter="6" Click="RadioButton_Click_1" Content="6 prób" Margin="0,0,0,5" Foreground="White"/>
+                <RadioButton GroupName="attempts" IsChecked="False" CommandParameter="7" Click="RadioButton_Click_1" Content="7 prób" Margin="0,0,0,5" Foreground="White"/>
+                <RadioButton GroupName="attempts" IsChecked="False" CommandParameter="8" Click="RadioButton_Click_1" Content="8 prób" Margin="0,0,0,5" Foreground="White"/>
+            </StackPanel>
             <TextBlock Text="Słowo którego niewiesz:" Foreground="LightGray" FontSize="12" Margin="5"/>
             <TextBlock Text="{Binding SecretWord}" Foreground="White" FontSize="16" Margin="5"/>
             <TextBlock Text="Ilość słów:" Foreground="LightGray" FontSize="12" Margin="5"/>
             <TextBlock Text="{Binding WordsCount}" Foreground="White" FontSize="16" Margin="5"/>
+            <TextBlock Text="Długość słowa:" Foreground="LightGray" FontSize="12" Margin="5"/>
+            <TextBlock Text="{Binding SecretWordLength}" Foreground="White" FontSize="16" Margin="5"/>
+            <TextBlock Text="Ilość prób:" Foreground="LightGray" FontSize="12" Margin="5"/>
+            <TextBlock Text="{Binding MaxAttempts}" Foreground="White" FontSize="16" Margin="5"/>
         </StackPanel>
     </Grid>
 </Window>

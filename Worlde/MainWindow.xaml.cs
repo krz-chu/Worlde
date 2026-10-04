@@ -16,6 +16,7 @@ using ToastNotifications.Lifetime;
 using ToastNotifications.Messages;
 using ToastNotifications.Position;
 
+
 //Install-Package ToastNotifications
 //Install-Package ToastNotifications.Messages
 
@@ -89,28 +90,29 @@ namespace Worlde
                 }
             }
         }
-
+        
+        
         private readonly System.Collections.Generic.HashSet<string> allowedWords;
 
         private Notifier? _notifier;
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        private void LoadWordsFromFile()
+        private void LoadWordsFromFile(bool allowFallback = true)
         {
         //słowa z words.txt   
             wordsList.Clear();
             
-            var dir = AppDomain.CurrentDomain.BaseDirectory;
-            string? found = null;
-            for (int i = 0; i < 6; i++)
+            var wordsFileName = SecretWordLength switch
             {
-                var p = Path.Combine(dir, "words.txt");
-                if (File.Exists(p)) { found = p; break; }
-                var parent = Path.GetDirectoryName(dir);
-                if (string.IsNullOrEmpty(parent) || parent == dir) break;
-                dir = parent;
-            }
+                4 => "words4.txt",
+                6 => "words6.txt",
+                7 => "words7.txt",
+                8 => "words8.txt",
+                _ => "words.txt",
+            };
+
+            string? found = FindFileInParents(wordsFileName);
 
             if (found != null)
             {
@@ -119,8 +121,8 @@ namespace Worlde
                     var lines = File.ReadAllLines(found);
                     foreach (var ln in lines)
                     {
-                        var s = ln.Trim();
-                        if (s.Length == 5 && s.All(char.IsLetter)) wordsList.Add(s.ToUpperInvariant());
+                    var s = ln.Trim();
+                        if (s.Length == SecretWordLength && s.All(char.IsLetter)) wordsList.Add(s.ToUpperInvariant());
                     }
                 }
                 catch { }
@@ -129,22 +131,102 @@ namespace Worlde
             if (wordsList.Count == 0)
             {
                 // jak sie wszystko wysra to jest to coś
-                wordsList.AddRange(new[]
+                
+                Notify("Nie znaleziono pliku words.txt lub jest pusty.", "Uwaga", NotificationKind.Warning);
+                // Spróbuj dodać słowa z pliku do_dodania.txt (jeśli istnieje). Funkcja doda je do wordsList.
+                try
                 {
-                    "APPLE", "GRAPE", "PLANE", "BRICK", "CANDY", "HELLO", "POWER", "LIVED",
-                    "WHICH", "THERE", "THEIR", "ABOUT", "WOULD", "THESE", "OTHER", "WORDS",
-                    "COULD", "WRITE", "FIRST", "WATER", "AFTER", "WHERE", "RIGHT", "THINK",
-                    "THREE", "YEARS", "PLACE", "SOUND", "POINT", "TIMES", "HEARD", "WHOLE",
-                    "WHITE", "GIVEN", "MEANS", "MUSIC", "MILES", "THING", "TODAY", "LATER",
-                    "USING", "MONEY", "LINES", "ORDER", "GROUP", "AMONG", "LEARN", "KNOWN",
-                    "SPACE", "TABLE", "EARLY", "TREES", "SHORT", "HANDS", "STATE", "BLACK",
-                    "SHOWN", "STOOD", "FRONT", "VOICE", "KINDS", "MAKES", "COMES", "CLOSE"
-                });
+                    AddWordsFromDoFile(wordsFileName);
+                }
+                catch { }
+
+                if (wordsList.Count == 0)
+                {
+                    // jeśli nadal brak słów, spróbuj przywrócić domyślne ustawienia (5 liter, 6 prób)
+                    if (allowFallback)
+                    {
+                        Notify("Nie znaleziono pliku ze słowami dla wybranej długości. Przywrucono domyślne ustawienia (5x6).", "Uwaga", NotificationKind.Warning);
+
+                        // Ustawiamy prywatnie, żeby nie wołać ponownie LoadWordsFromFile przez setter
+                        _secretWordLength = 5;
+                        OnPropertyChanged(nameof(SecretWordLength));
+                        MaxAttempts = 6;
+                        InitializeTiles();
+
+                        // spróbuj ponownie wczytać dla długości 5, ale już bez dalszego fallbacku
+                        LoadWordsFromFile(allowFallback: false);
+                        // zaktualizuj allowedWords jeśli istnieje
+                        allowedWords?.Clear();
+                        if (wordsList != null) foreach (var w in wordsList) allowedWords?.Add(w);
+                        // zaktualizuj licznik słów, rozpocznij nową grę
+                        OnPropertyChanged(nameof(WordsCount));
+                        NewGame();
+                        return;
+                    }
+
+                    Notify("Nie znaleziono pliku words.txt lub jest pusty.", "Uwaga", NotificationKind.Warning);
+                    return;
+                }
+
+                if (wordsList.Count == 0 && SecretWordLength == 5)
+                {
+                    Notify("Nie znaleziono pliku words.txt lub jest pusty. Użyto domyślnej listy słów.", "Uwaga", NotificationKind.Warning);
+                    wordsList.AddRange(new[]
+                    {
+                        "APPLE", "GRAPE", "PLANE", "BRICK", "CANDY", "HELLO", "POWER", "LIVED",
+                        "WHICH", "THERE", "THEIR", "ABOUT", "WOULD", "THESE", "OTHER", "WORDS",
+                        "COULD", "WRITE", "FIRST", "WATER", "AFTER", "WHERE", "RIGHT", "THINK",
+                        "THREE", "YEARS", "PLACE", "SOUND", "POINT", "TIMES", "HEARD", "WHOLE",
+                        "WHITE", "GIVEN", "MEANS", "MUSIC", "MILES", "THING", "TODAY", "LATER",
+                        "USING", "MONEY", "LINES", "ORDER", "GROUP", "AMONG", "LEARN", "KNOWN",
+                        "SPACE", "TABLE", "EARLY", "TREES", "SHORT", "HANDS", "STATE", "BLACK",
+                        "SHOWN", "STOOD", "FRONT", "VOICE", "KINDS", "MAKES", "COMES", "CLOSE"
+                    });
+                }
+                
             }
             OnPropertyChanged(nameof(WordsCount));
         }
 
         public int WordsCount => wordsList.Count;
+
+        private int _secretWordLength = 5;
+        public int SecretWordLength
+        {
+            get => _secretWordLength;
+            set
+            {
+                if (_secretWordLength != value)
+                {
+                    _secretWordLength = value;
+                    OnPropertyChanged(nameof(SecretWordLength));
+                    // when word length changes, reinitialize board and reload words
+                    InitializeTiles();
+                    LoadWordsFromFile();
+                    // update allowedWords set to reflect new wordsList
+                    allowedWords?.Clear();
+                    if (wordsList != null) foreach (var w in wordsList) allowedWords?.Add(w);
+                    // wybierz nowe sekretne słowo i zainicjuj nową grę
+                    NewGame();
+                }
+            }
+        }
+
+        private int _maxAttempts = 6;
+        public int MaxAttempts
+        {
+            get => _maxAttempts;
+            set
+            {
+                if (_maxAttempts != value)
+                {
+                    _maxAttempts = value;
+                    OnPropertyChanged(nameof(MaxAttempts));
+                    // when attempts change, reinitialize tiles
+                    InitializeTiles();
+                }
+            }
+        }
 
         private string? FindFileInParents(string filename, int maxLevels = 6)
         {
@@ -162,66 +244,77 @@ namespace Worlde
 
         private void AddWords_Click(object sender, RoutedEventArgs e)
         {
-            //dodaj do listy słów
+            // Wywołuje logikę dodawania słów z pliku do_dodania.txt. Zachowujemy jako wywołanie UI -> używamy helpera.
+            var wordsFileName = SecretWordLength switch
+            {
+                4 => "words4.txt",
+                6 => "words6.txt",
+                7 => "words7.txt",
+                8 => "words8.txt",
+                _ => "words.txt",
+            };
             try
             {
-                var addPath = FindFileInParents("do_dodania.txt") ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "do_dodania.txt");
-                if (!File.Exists(addPath))
-                {
-                    Notify("Brak pliku do_dodania.txt", "Błąd", NotificationKind.Warning);
-                    return;
-                }
-
-                var wordsPath = FindFileInParents("words.txt") ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "words.txt");
-                if (!File.Exists(wordsPath))
-                {
-                    File.WriteAllText(wordsPath, string.Empty);
-                }
-
-                var lines = File.ReadAllLines(addPath);
-                if (lines.Length == 0)
-                {
-                    Notify("Plik do_dodania.txt jest pusty", "Informacja", NotificationKind.Information);
-                    return;
-                }
-
-                var current = new HashSet<string>(allowedWords, StringComparer.OrdinalIgnoreCase);
-                var toAppend = new System.Collections.Generic.List<string>();
-                int added = 0;
-                foreach (var ln in lines)
-                {
-                    // czy dobre słowo 
-                    var s = (ln ?? "").Trim();
-                    if (s.Length != 5) continue;
-                    if (!s.All(char.IsLetter)) continue;
-                    var up = s.ToUpperInvariant();
-                    if (current.Contains(up)) continue;
-                    toAppend.Add(up.ToLowerInvariant());
-                    wordsList.Add(up);
-                    allowedWords.Add(up);
-                    current.Add(up);
-                    added++;
-                }
-
-                if (toAppend.Count > 0)
-                {
-                    // dodaj do words.txt
-                    File.AppendAllLines(wordsPath, toAppend);
-                    
-                }
-
-                // clear do_dodania.txt
-                File.WriteAllText(addPath, string.Empty);
-
-                // ile słów jest teraz
+                int added = AddWordsFromDoFile(wordsFileName);
                 OnPropertyChanged(nameof(WordsCount));
-
                 Notify($"Dodano {added} słów", "Informacja", NotificationKind.Success);
             }
             catch (Exception ex)
             {
                 Notify($"Błąd przy dodawaniu słów: {ex.Message}", "Błąd", NotificationKind.Error);
             }
+        }
+
+        // Helper który wykonuje rzeczywistą pracę dodawania słów z pliku do_dodania.txt
+        // Zwraca liczbę dodanych słów.
+        private int AddWordsFromDoFile(string wordsFileName)
+        {
+            var addPath = FindFileInParents("do_dodania.txt") ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "do_dodania.txt");
+            if (!File.Exists(addPath))
+            {
+                Notify("Brak pliku do_dodania.txt", "Błąd", NotificationKind.Warning);
+                return 0;
+            }
+
+            var wordsPath = FindFileInParents(wordsFileName) ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, wordsFileName);
+            if (!File.Exists(wordsPath))
+            {
+                File.WriteAllText(wordsPath, string.Empty);
+            }
+
+            var lines = File.ReadAllLines(addPath);
+            if (lines.Length == 0)
+            {
+                Notify("Plik do_dodania.txt jest pusty", "Informacja", NotificationKind.Information);
+                return 0;
+            }
+
+            // używamy obecnego zbioru allowedWords jeśli istnieje, w przeciwnym razie budujemy zestaw z wordsList
+            var current = (allowedWords != null)
+                ? new HashSet<string>(allowedWords, StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(wordsList, StringComparer.OrdinalIgnoreCase);
+
+            var toAppend = new System.Collections.Generic.List<string>();
+            int added = 0;
+            foreach (var ln in lines)
+            {
+                var s = (ln ?? "").Trim();
+                if (s.Length != SecretWordLength) continue;
+                if (!s.All(char.IsLetter)) continue;
+                var up = s.ToUpperInvariant();
+                if (current.Contains(up)) continue;
+                toAppend.Add(up.ToLowerInvariant());
+                wordsList.Add(up);
+                if (allowedWords != null) allowedWords.Add(up);
+                current.Add(up);
+                added++;
+            }
+
+            if (toAppend.Count > 0)
+            {
+                File.AppendAllLines(wordsPath, toAppend);
+            }
+            return added;
         }
         /// <summary>
         /// start --------------------------------------------------------
@@ -234,8 +327,9 @@ namespace Worlde
             // toast notification
             _notifier = new Notifier(cfg =>
             {
+                // use 'this' as parentWindow to ensure provider has a valid window reference during construction
                 cfg.PositionProvider = new WindowPositionProvider(
-                    parentWindow: Application.Current.MainWindow,
+                    parentWindow: this,
                     corner: Corner.TopLeft,
                     offsetX: 10,
                     offsetY: 10);
@@ -250,16 +344,7 @@ namespace Worlde
             // słówka z words.txt
             LoadWordsFromFile();
             allowedWords = new System.Collections.Generic.HashSet<string>(wordsList, StringComparer.OrdinalIgnoreCase);
-
-            // kafelki 6x5 do liter
-            for (int r = 0; r < 6; r++)
-            {
-                for (int c = 0; c < 5; c++)
-                {
-                    Tiles.Add(new TileModel { Letter = "", State = TileState.Unknown, Row = r, Col = c });
-                }
-            }
-
+            InitializeTiles();
             // kafelki klawiatury 
             var row1 = "QWERTYUIOP".Select(ch => ch.ToString());
             var row2 = "ASDFGHJKL".Select(ch => ch.ToString());
@@ -272,6 +357,20 @@ namespace Worlde
             var rnd = new Random();
             if (wordsList.Count == 0) LoadWordsFromFile();
             SecretWord = wordsList[rnd.Next(wordsList.Count)].ToUpperInvariant();
+        }
+
+        // IntEqualsConverter moved to separate file Worlde/IntEqualsConverter.cs
+        public void InitializeTiles()
+        {
+            // kafelki MaxAttempts X SecretWordLength
+            Tiles.Clear();
+            for (int r = 0; r < MaxAttempts; r++)
+            {
+                for (int c = 0; c < SecretWordLength; c++)
+                {
+                    Tiles.Add(new TileModel { Row = r, Col = c, Letter = "", State = TileState.Unknown });
+                }
+            }
         }
 
         private void KeyButton_Click(object? sender, RoutedEventArgs e)
@@ -289,9 +388,9 @@ namespace Worlde
 
         private void OnLetterPressed(string letter)
         {
-            //obsłóga klawiatury v2
-            if (currentCol >= 5) return;
-            var idx = currentRow * 5 + currentCol;
+            //obsłóga liter
+            if (currentCol >= SecretWordLength) return;
+            var idx = currentRow * SecretWordLength + currentCol;
             Tiles[idx].Letter = letter.ToUpperInvariant();
             Tiles[idx].State = TileState.Unknown;
             currentCol++;
@@ -302,7 +401,7 @@ namespace Worlde
             //delete
             if (currentCol <= 0) return;
             currentCol--;
-            var idx = currentRow * 5 + currentCol;
+            var idx = currentRow * SecretWordLength + currentCol;
             Tiles[idx].Letter = "";
             Tiles[idx].State = TileState.Unknown;
         }
@@ -310,8 +409,8 @@ namespace Worlde
         private void OnEnterPressed()
         {
             //main magic
-            if (currentCol < 5) { Notify("Za mało liter", "Uwaga", NotificationKind.Warning); return; }
-            var guess = string.Concat(Tiles.Skip(currentRow * 5).Take(5).Select(t => t.Letter));
+            if (currentCol < SecretWordLength) { Notify("Za mało liter", "Uwaga", NotificationKind.Warning); return; }
+            var guess = string.Concat(Tiles.Skip(currentRow * SecretWordLength).Take(SecretWordLength).Select(t => t.Letter));
             var guessUp = guess.ToUpperInvariant();
 
             // walidacja z words.txt
@@ -325,9 +424,9 @@ namespace Worlde
 
             if (guessUp == secret)
             {
-                for (int i = 0; i < 5; i++)
+                for (int i = 0; i < SecretWordLength; i++)
                 {
-                    var tile = Tiles[currentRow * 5 + i];
+                    var tile = Tiles[currentRow * SecretWordLength + i];
                     tile.State = TileState.Correct;
                     UpdateKeyState(tile.Letter, TileState.Correct);
                 }
@@ -337,9 +436,9 @@ namespace Worlde
             }
 
             // oznaczanie: dobre, jest, niema, niewiadomo
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < SecretWordLength; i++)
             {
-                var tile = Tiles[currentRow * 5 + i];
+                var tile = Tiles[currentRow * SecretWordLength + i];
                 var ch = tile.Letter;
                 if (string.IsNullOrEmpty(ch))
                 {
@@ -369,7 +468,7 @@ namespace Worlde
             //dalej
             currentRow++;
             currentCol = 0;
-            if (currentRow >= 6)
+            if (currentRow >= MaxAttempts)
             {
                 gameOver = true;
                 Notify($"Koniec gry. Szukane słowo: {SecretWord}", "Informacja", NotificationKind.Information);
@@ -426,7 +525,7 @@ namespace Worlde
         }
         private void NewGame()
         {
-            //reset
+            // reset
             foreach (var t in Tiles)
             {
                 t.Letter = "";
@@ -434,13 +533,45 @@ namespace Worlde
             }
             foreach (var k in KeysRow1.Concat(KeysRow2).Concat(KeysRow3)) k.State = TileState.Unknown;
             currentRow = 0; currentCol = 0; gameOver = false;
-            var rnd = new Random();
+
             if (wordsList.Count == 0) LoadWordsFromFile();
+
+            // jeśli nadal pusta — przerwij i powiadom
+            if (wordsList.Count == 0)
+            {
+                Notify("Brak słów do gry. Sprawdź plik ze słowami.", "Błąd", NotificationKind.Error);
+                return;
+            }
+
+            var rnd = new Random();
             SecretWord = wordsList[rnd.Next(wordsList.Count)].ToUpperInvariant();
             Notify("Nowa gra", "Informacja", NotificationKind.Information);
         }
 
         private void NewGame_Click(object sender, RoutedEventArgs e) => NewGame();
-        
+
+        private void RadioButton_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton rb && rb.IsChecked == true)
+            {
+                var val = rb.CommandParameter?.ToString() ?? rb.Content?.ToString();
+                if (int.TryParse(val, out int length)) SecretWordLength = length;
+                else SecretWordLength = 5;
+                InitializeTiles();
+                NewGame();
+                LoadWordsFromFile();
+            }
+        }
+
+        private void RadioButton_Click_1(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton rb && rb.IsChecked == true)
+            {
+                var val = rb.CommandParameter?.ToString() ?? rb.Content?.ToString();
+                if (int.TryParse(val, out int attempts)) MaxAttempts = attempts;
+                else MaxAttempts = 6;
+                NewGame();
+            }
+        }
     }
 }
