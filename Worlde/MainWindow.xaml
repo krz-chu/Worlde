@@ -5,7 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Worlde"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800" Background="Black">
+        Title="MainWindow" Height="450" Width="800" Background="Black"
+        KeyDown="Window_PreviewKeyDown">
     <Window.Resources>
         <local:IntEqualsConverter x:Key="IntEqualsConverter"/>
     </Window.Resources>
@@ -145,7 +146,7 @@
             </ItemsControl>
         </StackPanel>
 
-        <!-- panel debug -->
+        <!-- aditional optiones for your optiones -->
         <StackPanel Grid.Column="1" Grid.RowSpan="2" Margin="10" >
             <TextBlock Text="Controls" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
             <Button Content="Nowa gra" Click="NewGame_Click" Margin="0,0,0,10" Padding="8,4" Background="#FF2A2A2A" Foreground="White"/>

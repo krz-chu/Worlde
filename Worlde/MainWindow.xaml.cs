@@ -9,24 +9,18 @@ using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Media3D;
 using ToastNotifications;
 using ToastNotifications.Lifetime;
 using ToastNotifications.Messages;
 using ToastNotifications.Position;
+/*
 
+Install-Package ToastNotifications
+Install-Package ToastNotifications.Messages
 
-//Install-Package ToastNotifications
-//Install-Package ToastNotifications.Messages
-
-/*to do:
- * dodać opcje na ustawianie długości słowa (4-8 liter)
- * wraz z opcją na ustawienie liczby prób (4-8)
- * jak tak to też trzeba words4.txt, words5.txt, words6.txt, words7.txt, words8.txt
- * i przy dodawaniu słów zapytać jaka długość słowa -> gdzie dodać
- * niewiem ile ich mam ale chyba tokeny mi się kończą :D
- */
+*/
 namespace Worlde
 {
     public partial class MainWindow : Window, INotifyPropertyChanged
@@ -130,10 +124,10 @@ namespace Worlde
 
             if (wordsList.Count == 0)
             {
-                // jak sie wszystko wysra to jest to coś
+                // jak sie wszystko wysra
                 
                 Notify("Nie znaleziono pliku words.txt lub jest pusty.", "Uwaga", NotificationKind.Warning);
-                // Spróbuj dodać słowa z pliku do_dodania.txt (jeśli istnieje). Funkcja doda je do wordsList.
+                // Spróbuj dodać słowa z pliku do_dodania.txt \ jeśli istnieje
                 try
                 {
                     AddWordsFromDoFile(wordsFileName);
@@ -142,12 +136,10 @@ namespace Worlde
 
                 if (wordsList.Count == 0)
                 {
-                    // jeśli nadal brak słów, spróbuj przywrócić domyślne ustawienia (5 liter, 6 prób)
+                    // jeśli nadal brak słów spróbuj przywrócić domyślne ustawienia \ 5 liter 6 prób
                     if (allowFallback)
                     {
                         Notify("Nie znaleziono pliku ze słowami dla wybranej długości. Przywrucono domyślne ustawienia (5x6).", "Uwaga", NotificationKind.Warning);
-
-                        // Ustawiamy prywatnie, żeby nie wołać ponownie LoadWordsFromFile przez setter
                         _secretWordLength = 5;
                         OnPropertyChanged(nameof(SecretWordLength));
                         MaxAttempts = 6;
@@ -200,13 +192,10 @@ namespace Worlde
                 {
                     _secretWordLength = value;
                     OnPropertyChanged(nameof(SecretWordLength));
-                    // when word length changes, reinitialize board and reload words
                     InitializeTiles();
                     LoadWordsFromFile();
-                    // update allowedWords set to reflect new wordsList
                     allowedWords?.Clear();
                     if (wordsList != null) foreach (var w in wordsList) allowedWords?.Add(w);
-                    // wybierz nowe sekretne słowo i zainicjuj nową grę
                     NewGame();
                 }
             }
@@ -222,7 +211,6 @@ namespace Worlde
                 {
                     _maxAttempts = value;
                     OnPropertyChanged(nameof(MaxAttempts));
-                    // when attempts change, reinitialize tiles
                     InitializeTiles();
                 }
             }
@@ -230,6 +218,7 @@ namespace Worlde
 
         private string? FindFileInParents(string filename, int maxLevels = 6)
         {
+            //jeśli plik jest gdzieś indziej do 6 folderów do góry \\ gógr
             var dir = AppDomain.CurrentDomain.BaseDirectory;
             for (int i = 0; i < maxLevels; i++)
             {
@@ -244,7 +233,7 @@ namespace Worlde
 
         private void AddWords_Click(object sender, RoutedEventArgs e)
         {
-            // Wywołuje logikę dodawania słów z pliku do_dodania.txt. Zachowujemy jako wywołanie UI -> używamy helpera.
+            // z do_dodania.txt do odpowiedniego words txt
             var wordsFileName = SecretWordLength switch
             {
                 4 => "words4.txt",
@@ -264,11 +253,9 @@ namespace Worlde
                 Notify($"Błąd przy dodawaniu słów: {ex.Message}", "Błąd", NotificationKind.Error);
             }
         }
-
-        // Helper który wykonuje rzeczywistą pracę dodawania słów z pliku do_dodania.txt
-        // Zwraca liczbę dodanych słów.
         private int AddWordsFromDoFile(string wordsFileName)
         {
+            // helper który szuka i dodaje
             var addPath = FindFileInParents("do_dodania.txt") ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "do_dodania.txt");
             if (!File.Exists(addPath))
             {
@@ -289,7 +276,6 @@ namespace Worlde
                 return 0;
             }
 
-            // używamy obecnego zbioru allowedWords jeśli istnieje, w przeciwnym razie budujemy zestaw z wordsList
             var current = (allowedWords != null)
                 ? new HashSet<string>(allowedWords, StringComparer.OrdinalIgnoreCase)
                 : new HashSet<string>(wordsList, StringComparer.OrdinalIgnoreCase);
@@ -327,7 +313,7 @@ namespace Worlde
             // toast notification
             _notifier = new Notifier(cfg =>
             {
-                // use 'this' as parentWindow to ensure provider has a valid window reference during construction
+                
                 cfg.PositionProvider = new WindowPositionProvider(
                     parentWindow: this,
                     corner: Corner.TopLeft,
@@ -359,7 +345,6 @@ namespace Worlde
             SecretWord = wordsList[rnd.Next(wordsList.Count)].ToUpperInvariant();
         }
 
-        // IntEqualsConverter moved to separate file Worlde/IntEqualsConverter.cs
         public void InitializeTiles()
         {
             // kafelki MaxAttempts X SecretWordLength
@@ -470,6 +455,7 @@ namespace Worlde
             currentCol = 0;
             if (currentRow >= MaxAttempts)
             {
+                //game over = true
                 gameOver = true;
                 Notify($"Koniec gry. Szukane słowo: {SecretWord}", "Informacja", NotificationKind.Information);
             }
@@ -496,10 +482,7 @@ namespace Worlde
                     return;
                 }
             }
-            catch
-            {
-                
-            }
+            catch { }
 
             try
             {
@@ -552,6 +535,7 @@ namespace Worlde
 
         private void RadioButton_Click(object? sender, RoutedEventArgs e)
         {
+            //długość słowa
             if (sender is RadioButton rb && rb.IsChecked == true)
             {
                 var val = rb.CommandParameter?.ToString() ?? rb.Content?.ToString();
@@ -565,12 +549,38 @@ namespace Worlde
 
         private void RadioButton_Click_1(object sender, RoutedEventArgs e)
         {
+            //ilość prób
             if (sender is RadioButton rb && rb.IsChecked == true)
             {
                 var val = rb.CommandParameter?.ToString() ?? rb.Content?.ToString();
                 if (int.TryParse(val, out int attempts)) MaxAttempts = attempts;
                 else MaxAttempts = 6;
                 NewGame();
+            }
+        }
+
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            //from keyboard on key pressededed
+            if (e.Key == Key.Enter)
+            {
+                OnEnterPressed();
+                e.Handled = true;
+            } 
+            else if (e.Key == Key.Back)
+            {
+                OnDeletePressed();
+                e.Handled = true;
+            }
+            else
+            {
+                var keyChar = e.Key.ToString();
+                //MessageBox.Show($"Key pressed: {keyChar}"); //debug
+                if (!string.IsNullOrEmpty(keyChar) && keyChar.Length == 1 && char.IsLetter(keyChar[0]))
+                {
+                    OnLetterPressed(keyChar.ToUpperInvariant());
+                    e.Handled = true;
+                }
             }
         }
     }
